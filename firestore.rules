@@ -1,0 +1,184 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Phase 3: Primitive Definition ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role-based access using a trusted source (users collection)
+    function getUserRole() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data.get('role', 'user') : 'user';
+    }
+
+    function getOperatorType() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data.get('operatorType', null) : null;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email == 'contactesecours@gmail.com' ||
+        getUserRole() == 'admin'
+      );
+    }
+
+    function isOperator() {
+      return isEmailVerified() && (
+        request.auth.token.email == 'contactesecours@gmail.com' ||
+        getUserRole() in ['operator', 'admin']
+      );
+    }
+
+    function isOnlyOperator() {
+      return isEmailVerified() && getUserRole() == 'operator';
+    }
+
+    function isIncidentTargetOperator(incident) {
+      let tOp = incident.get('targetOperatorType', null);
+      let icType = incident.get('type', 'autre');
+      let opType = getOperatorType();
+      return opType != null && (
+        (tOp == opType) ||
+        (tOp == null && (
+          (opType == 'pompiers' && icType in ['medical', 'accident', 'incendie', 'inondation', 'seisme', 'autre']) ||
+          (opType == 'vbg_agression' && icType in ['vbg', 'agression_sexuelle']) ||
+          (opType == 'police' && icType in ['agression', 'vol', 'perte'])
+        ))
+      );
+    }
+
+    function isAccountActive() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isSignedIn() && (
+        !exists(path) ||
+        get(path).data.get('status', 'active') != 'suspended'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Phase 4: Entity Validation Blueprints ---
+
+    function isValidUser(data, uid) {
+      return data.get('uid', uid) == uid;
+    }
+
+    function isValidIncident(data) {
+      return data.userId is string 
+        && (request.method == 'create' ? data.userId == request.auth.uid : data.userId == existing().userId)
+        && data.type in ['accident', 'incendie', 'agression', 'vbg', 'agression_sexuelle', 'medical', 'vol', 'perte', 'inondation', 'seisme', 'autre']
+        && data.status in ['pending', 'active', 'resolved']
+        && data.location.lat is number
+        && data.location.lng is number
+        && (data.get('description', '') is string)
+        && (data.get('isSignalRequested', false) is bool)
+        && data.keys().hasAll(['userId', 'type', 'location', 'status', 'createdAt', 'updatedAt']);
+    }
+
+    function isValidContact(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 200
+        && data.email is string && data.email.size() > 0 && data.email.size() < 256
+        && data.message is string && data.message.size() > 0 && data.message.size() < 10000;
+    }
+
+    function isValidAnnouncement(data) {
+      return data.message is string && data.message.size() > 0 && data.message.size() < 1000
+        && data.active is bool
+        && data.keys().hasAll(['message', 'active', 'expiresAt']);
+    }
+
+    // --- Match Blocks ---
+
+    // Users
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isOperator();
+      allow list: if isOperator();
+      
+      allow create: if isOwner(userId)
+        && isEmailVerified()
+        && isValidUser(incoming(), userId)
+        && (incoming().get('role', 'user') == 'user' || (incoming().role == 'admin' && request.auth.token.email == 'contactesecours@gmail.com'));
+      
+      allow update: if isOwner(userId) || isAdmin() || isOperator();
+      
+      allow delete: if isAdmin() && userId != request.auth.uid;
+    }
+
+    // Incidents
+    match /incidents/{incidentId} {
+      allow get: if isAdmin() || (isOnlyOperator() && isIncidentTargetOperator(resource.data)) || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin() || (isOnlyOperator() && isIncidentTargetOperator(resource.data)) || (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      allow create: if isSignedIn()
+        && isEmailVerified()
+        && isAccountActive()
+        && isValidId(incidentId)
+        && isValidIncident(incoming());
+      
+      allow update: if (
+          isAdmin() ||
+          (isOnlyOperator() && isIncidentTargetOperator(existing()) && isIncidentTargetOperator(incoming())) ||
+          (isSignedIn() && existing().userId == request.auth.uid)
+        )
+        && isAccountActive()
+        && isValidIncident(incoming())
+        && (incoming().updatedAt == request.time)
+        && (
+          isAdmin() ||
+          isOnlyOperator() || 
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'isSignalRequested', 'updatedAt']))
+        );
+      
+      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+
+    // Contacts
+    match /contacts/{contactId} {
+      allow get, list: if isOperator();
+      allow create: if isValidContact(incoming()) && (!isSignedIn() || isAccountActive());
+      allow update: if isOperator() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin();
+    }
+
+    // App Config
+    match /app_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Announcements
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isOperator() && isValidAnnouncement(incoming());
+      allow update: if isOperator() && isValidAnnouncement(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}
