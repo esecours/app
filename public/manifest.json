@@ -1,0 +1,40 @@
+{
+  "name": "E-Secours - Plateforme d'Urgence & Secours",
+  "short_name": "E-Secours",
+  "description": "Plateforme d'urgence et de secours permettant une localisation précise, un signalement vocal et une transmission rapide d'informations critiques.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#2563EB",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["medical", "safety", "utilities"],
+  "shortcuts": [
+    {
+      "name": "SOS Urgence",
+      "short_name": "SOS",
+      "description": "Déclencher immédiatement une alerte SOS avec géolocalisation",
+      "url": "/?action=sos"
+    },
+    {
+      "name": "Numéros Utiles",
+      "short_name": "Numéros",
+      "description": "Consulter l'annuaire des secours au Bénin",
+      "url": "/?tab=numbers"
+    }
+  ]
+}

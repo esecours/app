@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile information with roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin", "operator"] },
+        "operatorType": { "type": "string", "enum": ["pompiers", "police", null] },
+        "phoneNumber": { "type": "string" },
+        "medicalInfo": { "type": "string" },
+        "emergencyContact": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "incident": {
+      "title": "Incident",
+      "description": "Emergency incident data",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { 
+          "type": "string", 
+          "enum": ["accident", "incendie", "agression", "medical", "vol", "perte", "inondation", "seisme", "autre"] 
+        },
+        "targetOperatorType": { "type": "string", "enum": ["pompiers", "police"] },
+        "description": { "type": "string" },
+        "audioUrl": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "precision": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        },
+        "status": { 
+          "type": "string", 
+          "enum": ["pending", "active", "resolved"] 
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "location", "status", "createdAt"]
+    },
+    "contact": {
+      "title": "Contact Message",
+      "description": "Messages sent from the contact form",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["unread", "read", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "message", "createdAt"]
+    },
+    "app_config": {
+      "title": "App Configuration",
+      "description": "Dynamic content for Login, About, Contact info, Numbers, and Tips",
+      "type": "object",
+      "properties": {
+        "loginTitle": { "type": "string" },
+        "loginImageUrl": { "type": "string" },
+        "about": { "type": "string" },
+        "aboutMissions": { "type": "array" },
+        "aboutFeatures": { "type": "array" },
+        "contactInfo": { 
+          "type": "object",
+          "properties": {
+            "email": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" }
+          }
+        },
+        "contactCoverage": { "type": "string" },
+        "tips": { "type": "array" },
+        "numbers": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "announcement": {
+      "title": "Announcement",
+      "description": "Real-time scrolling messages",
+      "type": "object",
+      "properties": {
+        "message": { "type": "string" },
+        "active": { "type": "boolean" },
+        "speed": { "type": "number" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["message", "active", "expiresAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles"
+    },
+    "/incidents/{incidentId}": {
+      "schema": "incident",
+      "description": "Emergency incidents"
+    },
+    "/contacts/{contactId}": {
+      "schema": "contact",
+      "description": "Contact form submissions"
+    },
+    "/app_config/{configId}": {
+      "schema": "app_config",
+      "description": "Global app content configuration"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "announcement",
+      "description": "Real-time scrolling announcements"
+    }
+  }
+}

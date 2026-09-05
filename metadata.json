@@ -1,0 +1,16 @@
+{
+  "name": "E-Secours",
+  "description": "Plateforme d'urgence et de secours permettant une localisation précise et une transmission rapide d'informations critiques.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API",
+    "Real-time emergency SOS",
+    "Precise geolocation & reverse geocoding",
+    "Audio incident reporting",
+    "Emergency services directory"
+  ]
+}
